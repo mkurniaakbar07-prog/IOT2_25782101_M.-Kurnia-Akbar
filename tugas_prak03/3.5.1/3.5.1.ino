@@ -1,0 +1,110 @@
+/*
+  Blink
+
+  Turns an LED on for one second, then off for one second, repeatedly.
+
+  Most Arduinos have an on-board LED you can control. On the UNO, MEGA and ZERO
+  it is attached to digital pin 13, on MKR1000 on pin 6. LED_BUILTIN is set to
+  the correct LED pin independent of which board is used.
+  If you want to know what pin the on-board LED is connected to on your Arduino
+  model, check the Technical Specs of your board at:
+  https://docs.arduino.cc/hardware/
+
+  modified 8 May 2014
+  by Scott Fitzgerald
+  modified 2 Sep 2016
+  by Arturo Guadalupi
+  modified 8 Sep 2016
+  by Colby Newman
+
+  This example code is in the public domain.
+
+  https://docs.arduino.cc/built-in-examples/basics/Blink/
+*/
+
+// the setup function runs once when you press reset or power the board
+#include <ESP8266WiFi.h>  
+#include <ESP8266WebServer.h>  
+#include <DHT.h>
+
+const char* ssid = "Redmi 12";  
+const char* password = "22345678";
+
+ESP8266WebServer server(80);
+
+const byte dhtPin = 2;         
+const byte relayPin = 12;      
+DHT dht(dhtPin, DHT22);
+
+const char index_html[] PROGMEM = R"rawliteral(  
+<!DOCTYPE html>  
+<html>  
+<head>  
+  <title>IoT Dashboard</title>  
+  <style>  
+    body { font-family: Arial; text-align: center; margin-top: 50px; }  
+    button { padding: 15px 30px; font-size: 20px; border-radius: 8px; margin: 10px; cursor: pointer;}  
+    .btn-on { background-color: #4CAF50; color: white; border: none; }  
+    .btn-off { background-color: #f44336; color: white; border: none; }  
+    .sensor-box { font-size: 24px; font-weight: bold; }  
+  </style>  
+</head>  
+<body>  
+  <h1>ESP8266 Web Server</h1>  
+  <div class="sensor-box">  
+    <p>Suhu Saat Ini: <strong>%TEMPERATURE%</strong> Celcius</p>  
+  </div>  
+  <h2>Kendali Relay</h2>  
+  <a href="/relay/on"><button class="btn-on">ON</button></a>  
+  <a href="/relay/off"><button class="btn-off">OFF</button></a>  
+</body>  
+</html>  
+)rawliteral";
+
+void handleRoot() {  
+  String html = index_html; // Salin kerangka HTML ke variabel dinamis
+  float t = dht.readTemperature();  
+  
+  // Mengganti teks placeholder %TEMPERATURE% dengan suhu nyata
+  if (isnan(t)) {
+    html.replace("%TEMPERATURE%", "--"); 
+  } else {
+    html.replace("%TEMPERATURE%", String(t)); 
+  }
+  
+  server.send(200, "text/html", html);  
+}
+
+void handleRelayOn() {  
+  digitalWrite(relayPin, HIGH); 
+  server.sendHeader("Location", "/");   
+  server.send(303);  
+}
+
+void handleRelayOff() {  
+  digitalWrite(relayPin, LOW);   
+  server.sendHeader("Location", "/");   
+  server.send(303);  
+}
+
+void setup() {  
+  Serial.begin(115200);  
+  pinMode(relayPin, OUTPUT);  
+  digitalWrite(relayPin, LOW);  
+  dht.begin();  
+    
+  WiFi.mode(WIFI_STA);   
+  WiFi.begin(ssid, password);  
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }  
+  Serial.println("\nIP Address Server Anda: ");  
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);  
+  server.on("/relay/on", handleRelayOn);  
+  server.on("/relay/off", handleRelayOff);  
+  server.begin();  
+}
+
+void loop() {  
+  server.handleClient();  
+}
